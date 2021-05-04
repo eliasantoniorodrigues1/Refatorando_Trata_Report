@@ -58,23 +58,49 @@ def trata_produtos(arquivo):
     return consolidado, datas_notas
 
 
-def pega_data(referencia):
-    ...
+def pega_data(lista, inicio_produto, fim_produto):
+    lista_datas = [lista[i][0] if inicio_produto < lista[i][1] < fim_produto
+                   else lista[i:][0] for i in range(len(lista)) if inicio_produto < lista[i][1] < fim_produto]
+    return lista_datas
+
+
+def pega_nota(lista, inicio_produto, fim_produto):
+    lista_notas = [lista[i][2] if inicio_produto < lista[i][1] < fim_produto
+                   else lista[i:][2] for i in range(len(lista)) if inicio_produto < lista[i][1] < fim_produto]
+    return lista_notas
 
 
 if __name__ == '__main__':
     arquivo = 'Relatorio Completo.V1.TXT'
     dict_produtos, datas_notas = trata_produtos(arquivo)
-    teste = altera_referencia(dict_produtos)
-    for dados in teste:
-        print(teste[0]['codigo'], teste[0]['ref_final_tratada'], end=' ')
+    lista_de_produtos = altera_referencia(dict_produtos)
+    consolida_produto = {}
 
-        while datas_notas[0][1] < teste[0]['ref_final_tratada']:
-            print(datas_notas[0][0])
-    # for dados in dict_produtos:
-    #     print(dados)
-    #
-    # for d in datas_notas[0]:
-    #     print(d)
-    # for valores in dict_produtos.values():
-    #     print(valores)
+    # print(lista_de_produtos[-1])
+    # print(datas_notas[-3])
+
+    for k, dados in enumerate(lista_de_produtos):
+        print(k, lista_de_produtos[k]['codigo'], lista_de_produtos[k]['descricao'])
+        inicio = lista_de_produtos[k]['ref_inicial']
+        fim = lista_de_produtos[k]['ref_final_tratada']
+        l = pega_data(datas_notas, inicio, fim)
+        n = pega_nota(datas_notas, inicio, fim)
+        print(l, n)
+
+        # consolida_produto['indice'] = k
+        # consolida_produto['codigo'] = lista_de_produtos[k]['codigo']
+        # consolida_produto['descricao'] = lista_de_produtos[k]['descricao']
+
+
+
+
+        # i = 0
+        # for i in range(len(datas_notas)):
+        #     if lista_de_produtos[k]['ref_inicial'] < datas_notas[i][1] < lista_de_produtos[k]['ref_final_tratada']:
+        #         # if lista_de_produtos[i][1] < lista_de_produtos[0]['ref_final_tratada']:
+        #         # print(f'\t Data: {datas_notas[i][0]} Nota: {datas_notas[i][2]}')
+        #         print(f'Data Ref: {datas_notas[i][1]} Inicio Produto:{lista_de_produtos[k]["ref_inicial"]} Fim {lista_de_produtos[k]["ref_final_tratada"]}')
+        #         i += 1
+        # d = [datas_notas[i][0] for i in range(len(datas_notas)) if
+        #      lista_de_produtos[k]['ref_inicial'] < datas_notas[i][1] < lista_de_produtos[k]['ref_final_tratada']]
+        # print(f'\t{d}')
