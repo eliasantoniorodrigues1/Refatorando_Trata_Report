@@ -1,100 +1,212 @@
-import datetime
 import re
 import pandas as pd
 import os
-import csv
-
-
-def altera_referencia(dicionario):
-    next = 1
-    i = 0
-    dict_list = list(dicionario.values())
-    t = len(dict_list)
-    for i in range(t):
-        next = i + 1
-        if next >= t:
-            next = t - 1
-        dict_list[i]['ref_final'] = dict_list[next]['ref_inicial']
-    return dict_list
 
 
 def trata_produtos(arquivo):
-    regexp_produto = re.compile(r'(\|)(Produto: )(\d+)(\s+)(-?)(.*\b)', flags=re.M)
-    regexp_ref_data = re.compile(r'(?<=[|])\d+?/\d+?/\d+', flags=re.M)
-    regexp_nota = re.compile(r'(?<=\d{2}/\d{2}/\d{2}\|)\d{6}\d?', flags=re.M)
-    regexp_cliente = re.compile(r'(?<=\d{2}/\d{2}/\d{2}\|).*\b', flags=re.M)
-    regexp_valor = re.compile(r'^\|\s+\|[0-9]+.*', flags=re.M)
+    regexep_prod = re.compile(r'(|)(Produto: )(\d+)(\s+)(-?)(.*\b)', flags=re.M)
 
     with open(arquivo, 'r') as file:
         texto = file.read()
-        lista_cod_produto = [produto.group(3).strip() for produto in regexp_produto.finditer(texto)]
-        lista_dsc_produto = [produto.group(6).strip() for produto in regexp_produto.finditer(texto)]
-        lista_ref_produto = [produto.start() for produto in regexp_produto.finditer(texto)]
-        lista_ref_final_produto = [produto.end() for produto in regexp_produto.finditer(texto)]
-        produtos = list(zip(lista_cod_produto, lista_dsc_produto, lista_ref_produto, lista_ref_final_produto))
-        # ------------------------------------------------------------------------------------------
-        lista_datas = [data.group() for data in regexp_ref_data.finditer(texto)]
-        lista_referencias = [data.end() for data in regexp_ref_data.finditer(texto)]
-        lista_notas = [nota.group() for nota in regexp_nota.finditer(texto)]
-        lista_clientes = [str(cliente.group())[str(cliente.group()).find('|') + 1:] for cliente in
-                          regexp_cliente.finditer(texto)]
-        # ------------------------------------------------------------------------------------------
-        lista_valores = [valor.group().split('|') for valor in regexp_valor.finditer(texto)]
-        # ------------------------------------------------------------------------------------------
-        i = 0
-        consolidado = {}
+        produtos = []
         prod = {}
-        for produto in produtos:
-            codigo = produto[0]
-            descricao = produto[1]
-            ref_inicial = produto[2]
-            ref_final = produto[3]
-            prod['codigo'] = codigo
-            prod['descricao'] = descricao
-            prod['ref_inicial'] = ref_inicial
-            prod['ref_final'] = ref_final
-            consolidado[i] = prod.copy()
-            i += 1
-    return consolidado, lista_referencias, lista_datas, lista_notas, lista_clientes, lista_valores
+        for produto in regexep_prod.finditer(texto):
+            prod['descricao'] = produto.group()
+            prod['ref_inicio'] = produto.start()
+            prod['ref_fim'] = produto.end()
+            produtos.append(prod.copy())
+            prod.clear()
+    return produtos
+
+
+def ref_datas(arquivo):
+    regexp_data = re.compile(r'(?<=[|])\d+?/\d+?/\d+', flags=re.M)
+    dts = []
+    ref_datas = []
+    dados = open(arquivo, 'r')
+    texto = dados.read()
+    dados.close()
+
+    for data in regexp_data.finditer(texto):
+        dts.append(data.group())
+        ref_datas.append(data.end())
+    return dts, ref_datas
+
+
+def cria_dicionario_produtos(produtos):
+    indice = 0
+    prox_indice = 1
+    stop = len(produtos) - 1
+    ref_produtos = []
+    dicionario_refs = {}
+
+    for produto in produtos:
+        limite_inicio_prod = produtos[indice]["ref_fim"]
+        limite_prod = produtos[prox_indice]["ref_inicio"]
+
+        dicionario_refs['descricao'] = produto["descricao"]
+        dicionario_refs['inicio'] = limite_inicio_prod
+        dicionario_refs['fim'] = limite_prod
+        ref_produtos.append(dicionario_refs.copy())
+
+        indice += 1
+        prox_indice = indice + 1
+        if prox_indice > stop:
+            prox_indice = indice
+    return ref_produtos
+
+
+def uni_produtos_datas(dicionario, lista_datas, lista_ref_datas):
+    ref_produtos = dicionario
+    ref_datas = lista_ref_datas
+    datas = lista_datas
+    i = 0
+    lista_produtos_datas = []
+    for item in ref_produtos:
+        if i >= len(datas):
+            break
+
+        if ref_datas[i] > item['fim']:
+            while ref_datas[i] > item['fim']:
+                # print(i, item['inicio'], item['descricao'], datas[i], ref_datas[i])
+                lista_produtos_datas.append(item['descricao'])
+                lista_produtos_datas.append(datas[i])
+                lista_produtos_datas.append(ref_datas[i])
+                i += 1
+                if i >= len(ref_datas):
+                    break
+        else:
+            while item['inicio'] < ref_datas[i] < item['fim']:
+                # print(i, item['inicio'], item['descricao'], datas[i], ref_datas[i])
+                lista_produtos_datas.append(item['descricao'])
+                lista_produtos_datas.append(datas[i])
+                lista_produtos_datas.append(ref_datas[i])
+                i += 1
+
+    return lista_produtos_datas
+
+
+def pega_datas(string):
+    data = re.search(r'^\|\d{2}/\d{2}/\d{2}', string)
+    if data:
+        data = data.group()
+        # ref_data = data.span
+        data = data.replace('|', '')
+    return data
+
+
+def pega_notas(string):
+    nota = re.search(r'(?<=\d{2}/\d{2}/\d{2}\|)\d{6}\d?', string)
+    if nota:
+        nota = nota.group()
+    return nota
+
+
+def pega_clientes(string):
+    cliente = re.search(r'(?<=\d{2}/\d{2}/\d{2}\|).*\b', string)
+    if cliente:
+        cliente = cliente.group()
+    return cliente
+
+
+def pega_valores(string):
+    valor = re.search(r'^\|\s+\|[0-9]+.*', string)
+    if valor:
+        valor = valor.group()
+        valor = valor.split('|')
+    return valor
+
+
+def separa_lista(lista_valores, indice):
+    """
+        indice é o índice da coluna do relatório
+    """
+    nova_lista = []
+    for lista in lista_valores:
+        valor_lista = lista[indice]
+        nova_lista.append(valor_lista.strip())
+    return nova_lista
+
+
+def salva_relatorio_excel(dicionario):
+    df = pd.DataFrame(data=dicionario)
+    df.to_excel('Relatorio_Consolidado.xlsx')
+    caminho = os.path.abspath('Relatorio_Consolidado.xlsx')
+    print(f'Seu relatório foi salvo em "{caminho}" com sucesso!')
+
+
+def remove_lixo_produto(string):
+    expressao = re.compile(r'^(Produto: )([0-9]+)(\s+-\s)(.*)$')
+    return re.search(expressao, string).group(2), re.search(expressao, string).group(4)
+
+
+def insere_dsc_produtos(lista):
+    cod_produtos = []
+    dsc_produtos = []
+    for d in lista_prod_dts[::3]:
+        codigo, descricao = remove_lixo_produto(d)
+        cod_produtos.append(codigo)
+        dsc_produtos.append(descricao)
+
+    return cod_produtos, dsc_produtos
 
 
 if __name__ == '__main__':
-    time_stamp = datetime.datetime.now().strftime('%Y-%m-%d %H-%M-%S')
-    nome_arquivo = f'{time_stamp}.csv'
-    arquivo = 'teste.txt'
-    dict_produtos, referencias, datas, notas, clientes, valores = trata_produtos(arquivo)
-    lista_de_produtos = altera_referencia(dict_produtos)
-    # Altera o último elemento do dicionário para ter como referencia final a ultima referencia +1 da lista de
-    # referencias.
-    lista_de_produtos[-1]['ref_final'] = referencias[-1] + 1
-    consolida_produto = {}
-    codigo = []
-    descricao = []
-    data = []
-    nota = []
-    valor = []
-    c = []
-    cabecalho = ['CODIGO', 'DESCRICAO', 'DATA', 'NOTA', 'CLIENTE', 'TPO', 'CFO', 'VL_CONTABIL',
-                 'IPI', 'ICMS', 'CUSTO', 'QUANTIDADE', 'C_UNIT', 'S_QUANTIDADE', 'S_C_UNIT', 'S_TOTAL'
-        , 'SALDO_QUANTIDADE', 'SALDO_C_UNIT', 'SALDO_TOTAL']
-    with open(nome_arquivo, 'w', newline='') as arquivo:
-        escreve = csv.writer(
-            arquivo,
-            delimiter=';'
-            # quotechar='"',
-            # quoting=csv.QUOTE_ALL
-        )
-        escreve.writerow(cabecalho)
-        for dados in lista_de_produtos:
-            inicio = dados['ref_inicial']
-            fim = dados['ref_final']
-            # print(dados['codigo'], dados['descricao'])
-            for i, ref in enumerate(referencias):
-                if inicio < ref < fim:
-                    # tpo,cfo,vl_contabil,ipi,icms,custo,quantidade,c_unit,s_quantidade,s_c_unit,s_total,saldo_quantidade,
-                    # saldo_c_unit,saldo_total = valores[i]
-                    print(valores[i][2:])
-                        # f"{dados['codigo']};{dados['descricao']};{datas[i]};{notas[i]};{clientes[i]}{valores[i]}")
-                    # txt = f"{dados['codigo']};{dados['descricao']};{datas[i]};{notas[i]};{clientes[i]}{';'.join([str(v).strip() for v in valores[i]])}"
-                    # arquivo.write(txt)
-                    # arquivo.write('\n')
+    arquivo = 'Relatório completo.txt'
+    # Dados dos produtos
+    referencia_produtos = cria_dicionario_produtos(trata_produtos(arquivo))
+    d, ref_dts = ref_datas(arquivo)
+    # Inserindo o nome dos produtos na lista de datas:
+    lista_prod_dts = uni_produtos_datas(referencia_produtos, d, ref_dts)
+
+    # ===================================================
+    with open(arquivo, 'r') as file:
+        consolidado = {}
+        datas = []
+        notas = []
+        clientes = []
+        valores = []
+
+        for linha in file:
+            # chamada das funções para criação das listas:
+            data = pega_datas(linha)
+            nota = pega_notas(linha)
+            cliente = pega_clientes(linha)
+            valor = pega_valores(linha)
+            # -=-=--=-=-=-=-=-=-=-=-=-=-=-==-=
+            # consolidação do retorno:
+            if data:
+                datas.append(data)
+            if nota:
+                notas.append(nota)
+            if cliente:
+                posicao = cliente.find('|') + 1
+                clientes.append(cliente[posicao:])
+            if valor:
+                valores.append(valor)
+    # # ===================================================
+    # Separando os valores da lista valores por colunas para adicionar ao dataframe
+    tpo = separa_lista(valores, 2)
+    cfo = separa_lista(valores, 3)
+    vl_contabil = separa_lista(valores, 4)
+    ipi = separa_lista(valores, 5)
+    icms = separa_lista(valores, 6)
+    custo = separa_lista(valores, 7)
+    quantidade = separa_lista(valores, 8)
+    c_unit = separa_lista(valores, 9)
+    s_quantidade = separa_lista(valores, 10)
+    s_c_unit = separa_lista(valores, 11)
+    s_total = separa_lista(valores, 12)
+    saldo_quantidade = separa_lista(valores, 13)
+    saldo_c_unit = separa_lista(valores, 14)
+    saldo_total = separa_lista(valores, 15)
+    # ===================================================
+    lista_codigos, lista_descricao_prod = insere_dsc_produtos(lista_prod_dts)
+    consolidado = {'codigo': lista_codigos, 'descricao': lista_descricao_prod, 'data': datas, 'nota': notas,
+                   'cliente': clientes,
+                   'tpo': tpo, 'cfo': cfo,
+                   'vl_contabil': vl_contabil, 'ipi': ipi, 'icms': icms, 'custo': custo, 'quantidade': quantidade,
+                   'c_unit': c_unit, 's_quantidade': s_quantidade, 's_c_unit': s_c_unit, 's_total': s_total,
+                   'saldo_quantidade': saldo_quantidade, 'saldo_c_unit': saldo_c_unit, 'saldo_total': saldo_total}
+
+    salva_relatorio_excel(consolidado)
