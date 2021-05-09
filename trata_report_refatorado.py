@@ -33,9 +33,11 @@ def trata_produtos(arquivo):
         lista_datas = [data.group() for data in regexp_ref_data.finditer(texto)]
         lista_ref_datas = [data.end() for data in regexp_ref_data.finditer(texto)]
         lista_notas = [nota.group() for nota in regexp_nota.finditer(texto)]
-        datas_notas = list(zip(lista_datas, lista_ref_datas, lista_notas))
         # ------------------------------------------------------------------------------------------
         lista_valores = [valor.group().split('|') for valor in regexp_valor.finditer(texto)]
+        # ------------------------------------------------------------------------------------------
+        # datas_notas_valores = list(zip(lista_datas, lista_ref_datas, lista_notas, lista_valores))
+        # datas_notas_valores = list(zip(lista_datas, lista_ref_datas, lista_notas))
         # ------------------------------------------------------------------------------------------
         i = 0
         consolidado = {}
@@ -51,35 +53,80 @@ def trata_produtos(arquivo):
             prod['ref_final'] = ref_final
             consolidado[i] = prod.copy()
             i += 1
-    return consolidado, datas_notas, lista_valores
+    return consolidado, lista_datas, lista_ref_datas
 
 
-def pega_data(lista, inicio_produto, fim_produto):
-    lista_datas = [lista[i][0] if inicio_produto < lista[i][1] < fim_produto
-                   else lista[i:][0] for i in range(len(lista)) if inicio_produto < lista[i][1] < fim_produto]
-    return lista_datas
+def uni_produtos_datas(dicionario, lista_datas, lista_ref_datas):
+    ref_produtos = dicionario
+    ref_datas = lista_ref_datas
+    datas = lista_datas
+    fim_prod = dicionario['ref_final_tratada']
+    i = 0
+    lista_produtos_datas = []
+    for item in ref_produtos:
+        if i >= len(datas):
+            break
+        controle_ref_datas = ref_datas[i]
+        if controle_ref_datas > fim_prod:
+            while controle_ref_datas > fim_prod:
+                # print(i, item['inicio'], item['descricao'], datas[i], ref_datas[i])
+                lista_produtos_datas.append(datas[i])
+                i += 1
+                controle_ref_datas = ref_datas[i]
+                if i >= len(ref_datas):
+                    break
+        else:
+            while controle_ref_datas < fim_prod:
+                # print(i, item['inicio'], item['descricao'], datas[i], ref_datas[i])
+                lista_produtos_datas.append(datas[i])
+                i += 1
+                controle_ref_datas = ref_datas[i]
+
+    return lista_produtos_datas
 
 
-def pega_nota(lista, inicio_produto, fim_produto):
-    lista_notas = [lista[i][2] if inicio_produto < lista[i][1] < fim_produto
-                   else lista[i:][2] for i in range(len(lista)) if inicio_produto < lista[i][1] < fim_produto]
-    return lista_notas
+# def pega_nota(lista, inicio_produto, fim_produto):
+#     lista_notas = [lista[i][2] if inicio_produto < lista[i][1] < fim_produto
+#                    else lista[i][2] for i in range(len(lista))]
+#     return lista_notas
+#
+#
+# def pega_valor(lista, inicio_produto, fim_produto):
+#     lista_valores = [lista[i][3] if inicio_produto < lista[i][1] < fim_produto
+#                      else lista[i][3] for i in range(len(lista)) if
+#                      inicio_produto < lista[i][1] < fim_produto]
+#     return lista_valores
 
 
 if __name__ == '__main__':
-    arquivo = 'Relatorio Completo.V1.TXT'
-    dict_produtos, datas_notas, valores = trata_produtos(arquivo)
+    arquivo = 'teste.txt'
+    dict_produtos, lista_datas, ref_datas = trata_produtos(arquivo)
     lista_de_produtos = altera_referencia(dict_produtos)
     consolida_produto = {}
-    for d in valores:
-        print(d)
-    # for k, dados in enumerate(lista_de_produtos):
-    #     print(k, lista_de_produtos[k]['codigo'], lista_de_produtos[k]['descricao'])
-    #     inicio = lista_de_produtos[k]['ref_inicial']
-    #     fim = lista_de_produtos[k]['ref_final_tratada']
-    #     l = pega_data(datas_notas, inicio, fim)
-    #     n = pega_nota(datas_notas, inicio, fim)
-    #     print(l, n)
+    l = []
+    contador = 0
+    indice = 0
+
+    for i, dict in enumerate(lista_de_produtos):
+        # print(i, dict['codigo'], dict['descricao'], dict['ref_final_tratada'])
+        ref_prod = dict['ref_final_tratada']
+        l, k = uni_produtos_datas(dict, lista_datas, ref_datas)
+        indice = k
+        dict['data'] = l
+
+    for dados in lista_de_produtos:
+        print(dados)
+
+    # inicio = lista_de_produtos[k]['ref_inicial']
+    # fim = lista_de_produtos[k]['ref_final_tratada']
+    # l, i = pega_data(datas_notas_valores, inicio, fim, contador)
+    # n = pega_nota(datas_notas_valores, inicio, fim)
+    # v = pega_valor(datas_notas_valores, inicio, fim)
+    # print(i)
+    # print(l)
+    # contador = i
+    # print(n)
+    # print(v)
 
     # consolida_produto['indice'] = k
     # consolida_produto['codigo'] = lista_de_produtos[k]['codigo']

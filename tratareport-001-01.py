@@ -5,7 +5,7 @@ import os
 import csv
 
 
-def altera_referencia(dicionario):
+def define_referencia_produto(dicionario):
     next = 1
     i = 0
     dict_list = list(dicionario.values())
@@ -18,7 +18,7 @@ def altera_referencia(dicionario):
     return dict_list
 
 
-def trata_produtos(arquivo):
+def executa_expressao_regular(arquivo):
     regexp_produto = re.compile(r'(\|)(Produto: )(\d+)(\s+)(-?)(.*\b)', flags=re.M)
     regexp_ref_data = re.compile(r'(?<=[|])\d+?/\d+?/\d+', flags=re.M)
     regexp_nota = re.compile(r'(?<=\d{2}/\d{2}/\d{2}\|)\d{6}\d?', flags=re.M)
@@ -59,11 +59,16 @@ def trata_produtos(arquivo):
 
 
 if __name__ == '__main__':
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     time_stamp = datetime.datetime.now().strftime('%Y-%m-%d %H-%M-%S')
-    nome_arquivo = f'{time_stamp}.csv'
-    arquivo = 'teste.txt'
-    dict_produtos, referencias, datas, notas, clientes, valores = trata_produtos(arquivo)
-    lista_de_produtos = altera_referencia(dict_produtos)
+    hora_inicio = datetime.datetime.now()
+    nome_arquivo = f'ABC-{time_stamp}.csv'
+    caminho_completo = os.path.join(BASE_DIR, nome_arquivo)
+    arquivo = 'Relatorio Completo.V1.txt'
+    # -----------------------------------------------------------------------------------------------
+    dict_produtos, referencias, datas, notas, clientes, valores = executa_expressao_regular(arquivo)
+    lista_de_produtos = define_referencia_produto(dict_produtos)
+    # ------------------------------------------------------------------------------------------------
     # Altera o último elemento do dicionário para ter como referencia final a ultima referencia +1 da lista de
     # referencias.
     lista_de_produtos[-1]['ref_final'] = referencias[-1] + 1
@@ -74,27 +79,26 @@ if __name__ == '__main__':
     nota = []
     valor = []
     c = []
+    # Definição dos cabeçalhos do arquivo CSV.
     cabecalho = ['CODIGO', 'DESCRICAO', 'DATA', 'NOTA', 'CLIENTE', 'TPO', 'CFO', 'VL_CONTABIL',
                  'IPI', 'ICMS', 'CUSTO', 'QUANTIDADE', 'C_UNIT', 'S_QUANTIDADE', 'S_C_UNIT', 'S_TOTAL'
         , 'SALDO_QUANTIDADE', 'SALDO_C_UNIT', 'SALDO_TOTAL']
+
     with open(nome_arquivo, 'w', newline='') as arquivo:
         escreve = csv.writer(
-            arquivo,
-            delimiter=';'
-            # quotechar='"',
-            # quoting=csv.QUOTE_ALL
-        )
+                            arquivo,
+                            delimiter=';'
+                            )
         escreve.writerow(cabecalho)
         for dados in lista_de_produtos:
             inicio = dados['ref_inicial']
             fim = dados['ref_final']
-            # print(dados['codigo'], dados['descricao'])
             for i, ref in enumerate(referencias):
                 if inicio < ref < fim:
-                    # tpo,cfo,vl_contabil,ipi,icms,custo,quantidade,c_unit,s_quantidade,s_c_unit,s_total,saldo_quantidade,
-                    # saldo_c_unit,saldo_total = valores[i]
-                    print(valores[i][2:])
-                        # f"{dados['codigo']};{dados['descricao']};{datas[i]};{notas[i]};{clientes[i]}{valores[i]}")
-                    # txt = f"{dados['codigo']};{dados['descricao']};{datas[i]};{notas[i]};{clientes[i]}{';'.join([str(v).strip() for v in valores[i]])}"
-                    # arquivo.write(txt)
-                    # arquivo.write('\n')
+                    txt = f"{dados['codigo']};{dados['descricao']};{datas[i]};{notas[i]};{clientes[i]}" \
+                          f";{';'.join([str(v).strip() for v in valores[i][2:]])}"
+                    arquivo.write(txt)
+                    arquivo.write('\n')
+    delta = datetime.datetime.now() - hora_inicio
+    print(f'Relatório salvo com sucesso em {caminho_completo}')
+    print(f'Tempo total decorrido: {delta}')
